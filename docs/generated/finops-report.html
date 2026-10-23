@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse cost report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+<style>
+  :root {
+    --ink: #141821;
+    --rule: #dfe3ea;
+    --grid: #eceff4;
+    --text: #1d222c;
+    --muted: #5c6572;
+    --paper: #ffffff;
+    --panel: #f7f8fa;
+    --amber: #a3600a;
+    --amber-soft: #fdf6e8;
+    --red: #b0242b;
+    --red-soft: #fdf1f1;
+    --teal: #0f6f63;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #eef0f4;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .sheet {
+    max-width: 1120px;
+    margin: 0 auto;
+    background: var(--paper);
+    min-height: 100vh;
+    padding: 40px 46px 56px;
+  }
+
+  h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+  h1 { font-size: 24px; }
+  h2 { font-size: 15px; }
+  p { margin: 0; }
+  .money, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 30px;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .masthead__eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .masthead__sub { color: var(--muted); font-size: 13.5px; margin-top: 6px; }
+
+  .masthead__meta { text-align: right; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+  .masthead__meta div { white-space: nowrap; }
+  .masthead__meta strong { color: var(--text); font-weight: 500; }
+
+  /* ---------- summary ledger ---------- */
+
+  .summary { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; margin-top: 26px; }
+
+  .ledger { width: 100%; border-collapse: collapse; }
+  .ledger td { padding: 9px 0; border-bottom: 1px solid var(--grid); vertical-align: baseline; }
+  .ledger tr:last-child td { border-bottom: none; }
+  .ledger__label { color: var(--muted); }
+  .ledger__value { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 15px; white-space: nowrap; }
+  .ledger .ledger__note { color: var(--muted); font-size: 12.5px; padding-left: 14px; }
+
+  .headline {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--amber);
+    padding: 18px 20px;
+  }
+  .headline__value { font-family: var(--mono); font-size: 30px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .headline__label { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .headline__aside { font-size: 13px; color: var(--text); margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--rule); }
+
+  /* ---------- sections ---------- */
+
+  section { margin-top: 34px; }
+  .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; border-bottom: 1px solid var(--ink); padding-bottom: 7px; margin-bottom: 16px; }
+  .section-head p { color: var(--muted); font-size: 12.5px; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; }
+
+  .chart-box { position: relative; height: 220px; }
+  .chart-box--tall { height: 260px; }
+
+  /* ---------- findings ---------- */
+
+  .finding { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--grid); align-items: start; }
+  .finding__index { font-family: var(--mono); color: var(--muted); font-size: 13px; padding-top: 1px; }
+  .finding__subject { font-weight: 600; font-size: 13.5px; }
+  .finding__message { color: var(--text); font-size: 13.5px; margin-top: 3px; }
+  .finding__action { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .finding__cost { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 13.5px; }
+  .chip { display: inline-block; font-size: 11px; font-weight: 600; border-radius: 2px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px; }
+  .chip--critical { background: var(--red-soft); color: var(--red); }
+  .chip--warning { background: var(--amber-soft); color: var(--amber); }
+  .chip--info { background: var(--panel); color: var(--muted); }
+
+  /* ---------- tables ---------- */
+
+  table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.data th {
+    text-align: left; font-weight: 500; font-size: 11.5px; color: var(--muted);
+    border-bottom: 1px solid var(--rule); padding: 6px 14px 6px 0; white-space: nowrap;
+  }
+  table.data td { padding: 7px 14px 7px 0; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  table.data th:last-child, table.data td:last-child { padding-right: 0; }
+  table.data td.r, table.data th.r { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.data td.mono { font-family: var(--mono); font-size: 12.5px; }
+  table.data td.rec { color: var(--amber); }
+  .bar-cell { position: relative; min-width: 90px; }
+  .bar { height: 6px; background: var(--grid); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .bar__fill { height: 100%; background: var(--ink); }
+  .bar__fill--flagged { background: var(--amber); }
+
+  .empty { border: 1px dashed var(--rule); color: var(--muted); padding: 14px; font-size: 13px; }
+
+  /* ---------- methodology ---------- */
+
+  .notes { background: var(--panel); border: 1px solid var(--rule); padding: 16px 20px; }
+  .notes h3 { font-size: 13px; margin-bottom: 8px; }
+  .notes dl { display: grid; grid-template-columns: 260px 1fr; gap: 6px 18px; margin: 0; font-size: 12.5px; }
+  .notes dt { color: var(--muted); font-family: var(--mono); }
+  .notes dd { margin: 0; }
+
+  footer { margin-top: 34px; padding-top: 14px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 12.5px; }
+  footer code { font-family: var(--mono); font-size: 12px; }
+
+  @media (max-width: 900px) {
+    .sheet { padding: 26px 20px 40px; }
+    .summary, .split { grid-template-columns: 1fr; gap: 24px; }
+    .masthead__meta { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <header class="masthead">
+    <div>
+      <div class="masthead__eyebrow">finops-warehouse-optimizer</div>
+      <h1>Warehouse cost report</h1>
+      <p class="masthead__sub">What the warehouse scanned, who spent it, and what is worth fixing first.</p>
+    </div>
+    <div class="masthead__meta" id="meta"></div>
+  </header>
+
+  <div class="summary">
+    <div>
+      <table class="ledger" id="ledger"></table>
+    </div>
+    <div class="headline">
+      <div class="headline__value" id="recoverable">—</div>
+      <div class="headline__label">estimated recoverable spend in this window</div>
+      <div class="headline__aside" id="headline-aside">—</div>
+    </div>
+  </div>
+
+  <section aria-labelledby="findings-heading">
+    <div class="section-head">
+      <h2 id="findings-heading">Findings, in triage order</h2>
+      <p>Rule-based, and each one names the cost and the fix</p>
+    </div>
+    <div id="findings"></div>
+  </section>
+
+  <section aria-labelledby="trend-heading">
+    <div class="section-head">
+      <h2 id="trend-heading">Spend per day</h2>
+      <p>Total scanned, with the avoidable share shaded</p>
+    </div>
+    <div class="chart-box"><canvas id="trend-chart" role="img" aria-label="Daily warehouse spend with avoidable share"></canvas></div>
+  </section>
+
+  <section aria-labelledby="dept-heading">
+    <div class="split">
+      <div>
+        <div class="section-head">
+          <h2 id="dept-heading">Spend by department</h2>
+          <p>Accountability, not blame</p>
+        </div>
+        <table class="data" id="departments"></table>
+      </div>
+      <div>
+        <div class="section-head">
+          <h2>Spend by user</h2>
+          <p>Who to talk to first</p>
+        </div>
+        <table class="data" id="users"></table>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="recs-heading">
+    <div class="section-head">
+      <h2 id="recs-heading">Recommendations by pattern</h2>
+      <p>Grouped the way the work actually gets scheduled</p>
+    </div>
+    <table class="data" id="recommendations"></table>
+  </section>
+
+  <section aria-labelledby="offenders-heading">
+    <div class="section-head">
+      <h2 id="offenders-heading">Costliest individual queries</h2>
+      <p>The list to open first</p>
+    </div>
+    <table class="data" id="top-offenders"></table>
+  </section>
+
+  <section aria-labelledby="notes-heading">
+    <div class="notes">
+      <h3 id="notes-heading">Methodology and assumptions</h3>
+      <dl id="assumptions"></dl>
+    </div>
+  </section>
+
+  <footer>
+    <p>Every figure is computed from <code id="input-name">query_history</code> by the SQL models listed below, and rendered by <code>python -m finops_optimizer.cli</code>. Savings are estimates under the assumptions above, not invoices already cancelled.</p>
+    <p id="models-run" style="margin-top:6px;"></p>
+  </footer>
+</div>
+
+<script>
+  window.__REPORT__ = {"generated_at": "2026-10-23T14:54:45.013430+00:00", "input": "data/query_history.json", "window": {"days": 14, "from": "2026-10-09 00:00:00", "to": "2026-10-22 00:00:00", "queries": 25200}, "kpis": {"total_cost_usd": 21548.47, "daily_cost_usd": 1539.18, "monthly_run_rate_usd": 46175.29, "recoverable_usd": 14300.33, "recoverable_share": 0.6636, "queries": 25200, "expensive_queries": 1090}, "assumptions": {"price_per_tb_usd": 6.25, "filter_selectivity": 0.02, "materialization_reduction": 0.9, "incremental_reduction": 0.5, "single_query_alert_usd": 10.0}, "daily": [{"query_date": "2026-10-09 00:00:00", "queries": 1800, "cost_usd": 1567.46, "flagged_cost_usd": 1028.65, "flagged_share": 0.6563}, {"query_date": "2026-10-10 00:00:00", "queries": 1800, "cost_usd": 1593.49, "flagged_cost_usd": 1086.79, "flagged_share": 0.682}, {"query_date": "2026-10-11 00:00:00", "queries": 1800, "cost_usd": 1545.06, "flagged_cost_usd": 1062.56, "flagged_share": 0.6877}, {"query_date": "2026-10-12 00:00:00", "queries": 1800, "cost_usd": 1567.98, "flagged_cost_usd": 1011.58, "flagged_share": 0.6451}, {"query_date": "2026-10-13 00:00:00", "queries": 1800, "cost_usd": 1666.75, "flagged_cost_usd": 1134.68, "flagged_share": 0.6808}, {"query_date": "2026-10-14 00:00:00", "queries": 1800, "cost_usd": 1509.0, "flagged_cost_usd": 996.2, "flagged_share": 0.6602}, {"query_date": "2026-10-15 00:00:00", "queries": 1800, "cost_usd": 1397.26, "flagged_cost_usd": 944.64, "flagged_share": 0.6761}, {"query_date": "2026-10-16 00:00:00", "queries": 1800, "cost_usd": 1468.64, "flagged_cost_usd": 960.95, "flagged_share": 0.6543}, {"query_date": "2026-10-17 00:00:00", "queries": 1800, "cost_usd": 1540.24, "flagged_cost_usd": 1005.14, "flagged_share": 0.6526}, {"query_date": "2026-10-18 00:00:00", "queries": 1800, "cost_usd": 1323.59, "flagged_cost_usd": 889.36, "flagged_share": 0.6719}, {"query_date": "2026-10-19 00:00:00", "queries": 1800, "cost_usd": 1543.7, "flagged_cost_usd": 1014.2, "flagged_share": 0.657}, {"query_date": "2026-10-20 00:00:00", "queries": 1800, "cost_usd": 1493.81, "flagged_cost_usd": 938.45, "flagged_share": 0.6282}, {"query_date": "2026-10-21 00:00:00", "queries": 1800, "cost_usd": 1482.35, "flagged_cost_usd": 989.84, "flagged_share": 0.6678}, {"query_date": "2026-10-22 00:00:00", "queries": 1800, "cost_usd": 1849.15, "flagged_cost_usd": 1237.28, "flagged_share": 0.6691}], "departments": [{"department": "Marketing", "queries": 7062, "total_cost_usd": 7469.67, "avg_cost_usd": 1.0577, "p95_cost_usd": 11.3459, "max_cost_usd": 12.5, "flagged_queries": 2296.0, "estimated_saving_usd": 5310.23, "saving_share": 0.7109}, {"department": "Product", "queries": 5558, "total_cost_usd": 4424.54, "avg_cost_usd": 0.7961, "p95_cost_usd": 4.2321, "max_cost_usd": 12.5, "flagged_queries": 1525.0, "estimated_saving_usd": 2891.69, "saving_share": 0.6536}, {"department": "Data Platform", "queries": 5022, "total_cost_usd": 2908.72, "avg_cost_usd": 0.5792, "p95_cost_usd": 4.0188, "max_cost_usd": 12.5, "flagged_queries": 1127.0, "estimated_saving_usd": 1527.06, "saving_share": 0.525}, {"department": "Support", "queries": 2959, "total_cost_usd": 2525.69, "avg_cost_usd": 0.8536, "p95_cost_usd": 4.2939, "max_cost_usd": 12.49, "flagged_queries": 876.0, "estimated_saving_usd": 1696.21, "saving_share": 0.6716}, {"department": "Finance", "queries": 3096, "total_cost_usd": 2422.98, "avg_cost_usd": 0.7826, "p95_cost_usd": 4.2942, "max_cost_usd": 12.48, "flagged_queries": 807.0, "estimated_saving_usd": 1509.31, "saving_share": 0.6229}, {"department": "Executive", "queries": 1503, "total_cost_usd": 1796.86, "avg_cost_usd": 1.1955, "p95_cost_usd": 11.3378, "max_cost_usd": 12.48, "flagged_queries": 574.0, "estimated_saving_usd": 1365.82, "saving_share": 0.7601}], "users": [{"user": "clara.ads", "department": "Marketing", "queries": 2426, "total_cost_usd": 2598.23, "avg_cost_usd": 1.071, "max_cost_usd": 12.5, "estimated_saving_usd": 1793.13}, {"user": "ana.marketing", "department": "Marketing", "queries": 2294, "total_cost_usd": 2498.4, "avg_cost_usd": 1.0891, "max_cost_usd": 12.49, "estimated_saving_usd": 1827.93}, {"user": "gita.analytics", "department": "Product", "queries": 2836, "total_cost_usd": 2395.46, "avg_cost_usd": 0.8447, "max_cost_usd": 12.5, "estimated_saving_usd": 1543.48}, {"user": "budi.growth", "department": "Marketing", "queries": 2342, "total_cost_usd": 2373.04, "avg_cost_usd": 1.0133, "max_cost_usd": 12.49, "estimated_saving_usd": 1689.17}, {"user": "fajar.product", "department": "Product", "queries": 2722, "total_cost_usd": 2029.08, "avg_cost_usd": 0.7454, "max_cost_usd": 12.48, "estimated_saving_usd": 1348.21}, {"user": "ceo.dashboard", "department": "Executive", "queries": 1503, "total_cost_usd": 1796.86, "avg_cost_usd": 1.1955, "max_cost_usd": 12.48, "estimated_saving_usd": 1365.82}, {"user": "lia.support", "department": "Support", "queries": 1515, "total_cost_usd": 1326.46, "avg_cost_usd": 0.8756, "max_cost_usd": 12.49, "estimated_saving_usd": 911.28}, {"user": "dedi.finance", "department": "Finance", "queries": 1610, "total_cost_usd": 1247.5, "avg_cost_usd": 0.7748, "max_cost_usd": 12.46, "estimated_saving_usd": 725.82}, {"user": "maya.cx", "department": "Support", "queries": 1444, "total_cost_usd": 1199.23, "avg_cost_usd": 0.8305, "max_cost_usd": 12.48, "estimated_saving_usd": 784.94}, {"user": "erwin.controlling", "department": "Finance", "queries": 1486, "total_cost_usd": 1175.47, "avg_cost_usd": 0.791, "max_cost_usd": 12.48, "estimated_saving_usd": 783.49}, {"user": "joko.etl", "department": "Data Platform", "queries": 1702, "total_cost_usd": 1003.22, "avg_cost_usd": 0.5894, "max_cost_usd": 12.46, "estimated_saving_usd": 511.98}, {"user": "intan.eng", "department": "Data Platform", "queries": 1635, "total_cost_usd": 986.55, "avg_cost_usd": 0.6034, "max_cost_usd": 12.42, "estimated_saving_usd": 521.52}], "top_offenders": [{"query_id": "q0015452", "user": "clara.ads", "department": "Marketing", "statement_type": "SELECT", "table": "warehouse.stg_events", "bytes_scanned": 1999610359309, "duration_seconds": 2532.63, "pattern": "select_star_no_filter", "cost_usd": 12.4976, "estimated_saving_usd": 12.2476, "recommendation": "Filter on the partition column", "started_at": "2026-10-17 10:35:17"}, {"query_id": "q0018535", "user": "gita.analytics", "department": "Product", "statement_type": "INSERT", "table": "warehouse.stg_events", "bytes_scanned": 1999442203105, "duration_seconds": 2277.34, "pattern": "full_rebuild", "cost_usd": 12.4965, "estimated_saving_usd": 6.1233, "recommendation": "Switch the load to incremental", "started_at": "2026-10-19 13:05:36"}, {"query_id": "q0019343", "user": "hadi.platform", "department": "Data Platform", "statement_type": "SELECT", "table": "warehouse.stg_events", "bytes_scanned": 1999396728154, "duration_seconds": 3148.43, "pattern": "select_star_no_filter", "cost_usd": 12.4962, "estimated_saving_usd": 12.2462, "recommendation": "Filter on the partition column", "started_at": "2026-10-19 12:58:28"}, {"query_id": "q0015277", "user": "hadi.platform", "department": "Data Platform", "statement_type": "CREATE_TABLE_AS_SELECT", "table": "warehouse.stg_events", "bytes_scanned": 1999207950870, "duration_seconds": 3917.6, "pattern": "full_rebuild", "cost_usd": 12.495, "estimated_saving_usd": 6.1225, "recommendation": "Switch the load to incremental", "started_at": "2026-10-17 21:20:54"}, {"query_id": "q0002654", "user": "budi.growth", "department": "Marketing", "statement_type": "SELECT", "table": "warehouse.stg_events", "bytes_scanned": 1999155243398, "duration_seconds": 3072.95, "pattern": "select_star_no_filter", "cost_usd": 12.4947, "estimated_saving_usd": 12.2447, "recommendation": "Filter on the partition column", "started_at": "2026-10-10 12:23:36"}, {"query_id": "q0020010", "user": "budi.growth", "department": "Marketing", "statement_type": "INSERT", "table": "warehouse.stg_events", "bytes_scanned": 1998944495760, "duration_seconds": 3216.19, "pattern": "full_rebuild", "cost_usd": 12.4934, "estimated_saving_usd": 6.1217, "recommendation": "Switch the load to incremental", "started_at": "2026-10-20 10:30:29"}, {"query_id": "q0005558", "user": "ana.marketing", "department": "Marketing", "statement_type": "SELECT", "table": "warehouse.stg_events", "bytes_scanned": 1998891212754, "duration_seconds": 4860.95, "pattern": "select_star_no_filter", "cost_usd": 12.4931, "estimated_saving_usd": 12.2431, "recommendation": "Filter on the partition column", "started_at": "2026-10-12 04:03:32"}, {"query_id": "q0004801", "user": "hadi.platform", "department": "Data Platform", "statement_type": "CREATE_TABLE_AS_SELECT", "table": "warehouse.stg_events", "bytes_scanned": 1998475545598, "duration_seconds": 2271.08, "pattern": "full_rebuild", "cost_usd": 12.4905, "estimated_saving_usd": 6.1202, "recommendation": "Switch the load to incremental", "started_at": "2026-10-11 14:55:03"}, {"query_id": "q0013038", "user": "clara.ads", "department": "Marketing", "statement_type": "SELECT", "table": "warehouse.stg_events", "bytes_scanned": 1998483681197, "duration_seconds": 2293.24, "pattern": "select_star_no_filter", "cost_usd": 12.4905, "estimated_saving_usd": 12.2405, "recommendation": "Filter on the partition column", "started_at": "2026-10-16 10:02:00"}, {"query_id": "q0020247", "user": "budi.growth", "department": "Marketing", "statement_type": "CREATE_TABLE_AS_SELECT", "table": "warehouse.stg_events", "bytes_scanned": 1998146087431, "duration_seconds": 2355.38, "pattern": "full_rebuild", "cost_usd": 12.4884, "estimated_saving_usd": 6.1192, "recommendation": "Switch the load to incremental", "started_at": "2026-10-20 17:33:17"}, {"query_id": "q0014249", "user": "ana.marketing", "department": "Marketing", "statement_type": "MERGE", "table": "warehouse.stg_events", "bytes_scanned": 1998118718676, "duration_seconds": 2419.92, "pattern": "full_rebuild", "cost_usd": 12.4882, "estimated_saving_usd": 6.1191, "recommendation": "Switch the load to incremental", "started_at": "2026-10-16 08:58:21"}, {"query_id": "q0005398", "user": "lia.support", "department": "Support", "statement_type": "CREATE_TABLE_AS_SELECT", "table": "warehouse.stg_events", "bytes_scanned": 1998049883575, "duration_seconds": 2633.55, "pattern": "full_rebuild", "cost_usd": 12.4878, "estimated_saving_usd": 6.1189, "recommendation": "Switch the load to incremental", "started_at": "2026-10-11 12:54:05"}, {"query_id": "q0003984", "user": "gita.analytics", "department": "Product", "statement_type": "CREATE_TABLE_AS_SELECT", "table": "warehouse.stg_events", "bytes_scanned": 1997846551761, "duration_seconds": 2342.6, "pattern": "full_rebuild", "cost_usd": 12.4865, "estimated_saving_usd": 6.1183, "recommendation": "Switch the load to incremental", "started_at": "2026-10-11 08:18:35"}, {"query_id": "q0017863", "user": "lia.support", "department": "Support", "statement_type": "SELECT", "table": "warehouse.stg_events", "bytes_scanned": 1997731340577, "duration_seconds": 5972.85, "pattern": "select_star_no_filter", "cost_usd": 12.4858, "estimated_saving_usd": 12.2358, "recommendation": "Filter on the partition column", "started_at": "2026-10-18 12:34:52"}, {"query_id": "q0015053", "user": "budi.growth", "department": "Marketing", "statement_type": "CREATE_TABLE_AS_SELECT", "table": "warehouse.stg_events", "bytes_scanned": 1997571631158, "duration_seconds": 3945.75, "pattern": "full_rebuild", "cost_usd": 12.4848, "estimated_saving_usd": 6.1174, "recommendation": "Switch the load to incremental", "started_at": "2026-10-17 19:18:27"}], "recommendations": [{"pattern": "select_star_no_filter", "table": "warehouse.stg_events", "occurrences": 422, "total_cost_usd": 5027.79, "estimated_saving_usd": 4922.29, "recommendation": "Filter on the partition column"}, {"pattern": "full_rebuild", "table": "warehouse.stg_events", "occurrences": 668, "total_cost_usd": 7941.64, "estimated_saving_usd": 3887.32, "recommendation": "Switch the load to incremental"}, {"pattern": "select_star_no_filter", "table": "warehouse.fct_sessions", "occurrences": 418, "total_cost_usd": 1735.56, "estimated_saving_usd": 1698.98, "recommendation": "Filter on the partition column"}, {"pattern": "full_rebuild", "table": "warehouse.fct_sessions", "occurrences": 646, "total_cost_usd": 2680.74, "estimated_saving_usd": 1312.11, "recommendation": "Switch the load to incremental"}, {"pattern": "select_star_no_filter", "table": "commerce.fct_order_items", "occurrences": 388, "total_cost_usd": 920.93, "estimated_saving_usd": 901.53, "recommendation": "Filter on the partition column"}, {"pattern": "full_rebuild", "table": "commerce.fct_order_items", "occurrences": 662, "total_cost_usd": 1570.15, "estimated_saving_usd": 768.53, "recommendation": "Switch the load to incremental"}, {"pattern": "select_star_no_filter", "table": "commerce.fct_orders", "occurrences": 436, "total_cost_usd": 309.89, "estimated_saving_usd": 303.35, "recommendation": "Filter on the partition column"}, {"pattern": "full_rebuild", "table": "commerce.fct_orders", "occurrences": 697, "total_cost_usd": 496.39, "estimated_saving_usd": 242.97, "recommendation": "Switch the load to incremental"}, {"pattern": "select_star_no_filter", "table": "finance.fct_invoices", "occurrences": 415, "total_cost_usd": 98.56, "estimated_saving_usd": 96.49, "recommendation": "Filter on the partition column"}, {"pattern": "full_rebuild", "table": "finance.fct_invoices", "occurrences": 692, "total_cost_usd": 164.35, "estimated_saving_usd": 80.44, "recommendation": "Switch the load to incremental"}, {"pattern": "repeated_dashboard", "table": "warehouse.stg_events", "occurrences": 439, "total_cost_usd": 58.78, "estimated_saving_usd": 52.9, "recommendation": "Materialise the result or add a cache"}, {"pattern": "repeated_dashboard", "table": "warehouse.fct_sessions", "occurrences": 446, "total_cost_usd": 21.2, "estimated_saving_usd": 19.08, "recommendation": "Materialise the result or add a cache"}, {"pattern": "repeated_dashboard", "table": "commerce.fct_order_items", "occurrences": 480, "total_cost_usd": 12.73, "estimated_saving_usd": 11.46, "recommendation": "Materialise the result or add a cache"}, {"pattern": "repeated_dashboard", "table": "commerce.fct_orders", "occurrences": 396, "total_cost_usd": 3.21, "estimated_saving_usd": 2.89, "recommendation": "Materialise the result or add a cache"}], "findings": [{"rule": "single_query_over_threshold", "severity": "critical", "subject": "q0015452 (clara.ads)", "message": "One SELECT on warehouse.stg_events scanned 2,000 GB for $12.50 (threshold $10.00).", "cost_usd": 12.4976, "recommendation": "Filter on the partition column"}, {"rule": "single_query_over_threshold", "severity": "critical", "subject": "q0018535 (gita.analytics)", "message": "One INSERT on warehouse.stg_events scanned 1,999 GB for $12.50 (threshold $10.00).", "cost_usd": 12.4965, "recommendation": "Switch the load to incremental"}, {"rule": "single_query_over_threshold", "severity": "critical", "subject": "q0019343 (hadi.platform)", "message": "One SELECT on warehouse.stg_events scanned 1,999 GB for $12.50 (threshold $10.00).", "cost_usd": 12.4962, "recommendation": "Filter on the partition column"}, {"rule": "single_query_over_threshold", "severity": "critical", "subject": "q0015277 (hadi.platform)", "message": "One CREATE_TABLE_AS_SELECT on warehouse.stg_events scanned 1,999 GB for $12.49 (threshold $10.00).", "cost_usd": 12.495, "recommendation": "Switch the load to incremental"}, {"rule": "single_query_over_threshold", "severity": "critical", "subject": "q0002654 (budi.growth)", "message": "One SELECT on warehouse.stg_events scanned 1,999 GB for $12.49 (threshold $10.00).", "cost_usd": 12.4947, "recommendation": "Filter on the partition column"}, {"rule": "single_query_over_threshold", "severity": "warning", "subject": "1090 queries over threshold", "message": "1090 queries exceeded $10.00; the five costliest are listed above.", "cost_usd": 12969.4358, "recommendation": "Triage the full list by writing them back to the owning team"}, {"rule": "department_budget_breach", "severity": "warning", "subject": "Marketing", "message": "Marketing is running at $16,006/month against a $12,000 budget (133% of plan); $5,310 of the window is flagged as avoidable.", "cost_usd": 5310.23, "recommendation": "Share the top-offender list with the team before the next cycle"}, {"rule": "dominant_avoidable_pattern", "severity": "warning", "subject": "select_star_no_filter on warehouse.stg_events", "message": "422 queries with pattern select_star_no_filter on warehouse.stg_events cost $5,027.79, of which $4,922.29 looks recoverable.", "cost_usd": 4922.29, "recommendation": "Filter on the partition column"}, {"rule": "dominant_avoidable_pattern", "severity": "warning", "subject": "full_rebuild on warehouse.stg_events", "message": "668 queries with pattern full_rebuild on warehouse.stg_events cost $7,941.64, of which $3,887.32 looks recoverable.", "cost_usd": 3887.32, "recommendation": "Switch the load to incremental"}, {"rule": "dominant_avoidable_pattern", "severity": "warning", "subject": "select_star_no_filter on warehouse.fct_sessions", "message": "418 queries with pattern select_star_no_filter on warehouse.fct_sessions cost $1,735.56, of which $1,698.98 looks recoverable.", "cost_usd": 1698.98, "recommendation": "Filter on the partition column"}, {"rule": "department_budget_breach", "severity": "warning", "subject": "Executive", "message": "Executive is running at $3,850/month against a $3,000 budget (128% of plan); $1,366 of the window is flagged as avoidable.", "cost_usd": 1365.82, "recommendation": "Share the top-offender list with the team before the next cycle"}, {"rule": "dominant_avoidable_pattern", "severity": "warning", "subject": "full_rebuild on warehouse.fct_sessions", "message": "646 queries with pattern full_rebuild on warehouse.fct_sessions cost $2,680.74, of which $1,312.11 looks recoverable.", "cost_usd": 1312.11, "recommendation": "Switch the load to incremental"}, {"rule": "dominant_avoidable_pattern", "severity": "warning", "subject": "select_star_no_filter on commerce.fct_order_items", "message": "388 queries with pattern select_star_no_filter on commerce.fct_order_items cost $920.93, of which $901.53 looks recoverable.", "cost_usd": 901.53, "recommendation": "Filter on the partition column"}, {"rule": "dominant_avoidable_pattern", "severity": "warning", "subject": "full_rebuild on commerce.fct_order_items", "message": "662 queries with pattern full_rebuild on commerce.fct_order_items cost $1,570.15, of which $768.53 looks recoverable.", "cost_usd": 768.53, "recommendation": "Switch the load to incremental"}, {"rule": "dominant_avoidable_pattern", "severity": "warning", "subject": "select_star_no_filter on commerce.fct_orders", "message": "436 queries with pattern select_star_no_filter on commerce.fct_orders cost $309.89, of which $303.35 looks recoverable.", "cost_usd": 303.35, "recommendation": "Filter on the partition column"}], "models_run": ["01_cost_per_query", "02_cost_by_department", "03_cost_by_user", "04_top_offenders", "05_daily_trend", "06_recommendations"]};
+
+  (function () {
+    var D = window.__REPORT__;
+    var INK = "#141821", AMBER = "#a3600a", GRID = "#eceff4", MUTED = "#5c6572";
+
+    function el(tag, className, text) {
+      var node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+    function cell(tag, className, text) { return el(tag, className, text); }
+
+    var money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+    var money0 = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+    var moneyShort = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
+    var int = new Intl.NumberFormat("en-US");
+    function pct(x) { return (x * 100).toFixed(1) + "%"; }
+    function gb(bytes) { return (bytes / 1e9).toFixed(bytes >= 1e11 ? 0 : 1) + " GB"; }
+
+    /* masthead */
+    var w = D.window;
+    var meta = document.getElementById("meta");
+    [["Window", w.days + " days (" + String(w.from).slice(0, 10) + " → " + String(w.to).slice(0, 10) + ")"],
+     ["Queries", int.format(w.queries)],
+     ["Generated", D.generated_at.replace("T", " ").slice(0, 16) + " UTC"]].forEach(function (pair) {
+      var line = el("div");
+      line.appendChild(el("span", null, pair[0] + ": "));
+      line.appendChild(el("strong", null, pair[1]));
+      meta.appendChild(line);
+    });
+    document.getElementById("input-name").textContent = D.input;
+
+    /* summary ledger */
+    var k = D.kpis;
+    var ledger = document.getElementById("ledger");
+    [
+      ["Total scanned cost", money.format(k.total_cost_usd), ""],
+      ["Average per day", money.format(k.daily_cost_usd), ""],
+      ["Projected monthly run rate", money.format(k.monthly_run_rate_usd), "30-day extrapolation"],
+      ["Queries", int.format(k.queries), ""],
+      ["Queries over " + money0.format(D.assumptions.single_query_alert_usd), int.format(k.expensive_queries), "single-query alert threshold"]
+    ].forEach(function (row) {
+      var tr = el("tr");
+      tr.appendChild(cell("td", "ledger__label", row[0]));
+      tr.appendChild(cell("td", "ledger__value", row[1]));
+      tr.appendChild(cell("td", "ledger__note", row[2]));
+      ledger.appendChild(tr);
+    });
+
+    document.getElementById("recoverable").textContent = money.format(k.recoverable_usd);
+    document.getElementById("headline-aside").textContent =
+      pct(k.recoverable_share) + " of all spend scanned data that a filter, a cache, or an incremental load could have skipped. " +
+      "The estimate is deliberately conservative: see the assumptions below.";
+
+    /* findings */
+    var findingsBox = document.getElementById("findings");
+    if (!D.findings.length) {
+      findingsBox.appendChild(el("div", "empty", "No rule fired in this window. Nothing is over threshold and every department is inside its budget."));
+    } else {
+      D.findings.forEach(function (f, index) {
+        var row = el("div", "finding");
+        row.appendChild(el("div", "finding__index", String(index + 1).padStart(2, "0")));
+        var body = el("div");
+        var subject = el("div", "finding__subject");
+        subject.appendChild(el("span", "chip chip--" + f.severity, f.severity));
+        subject.appendChild(el("span", null, f.subject));
+        body.appendChild(subject);
+        body.appendChild(el("div", "finding__message", f.message));
+        body.appendChild(el("div", "finding__action", "→ " + f.recommendation));
+        row.appendChild(body);
+        row.appendChild(el("div", "finding__cost", money.format(f.cost_usd)));
+        findingsBox.appendChild(row);
+      });
+    }
+
+    /* departments */
+    var deptTable = document.getElementById("departments");
+    var deptHead = el("tr");
+    [["Department"], ["Queries", "r"], ["Cost", "r"], ["Recoverable", "r"], ["% of spend", "r"]].forEach(function (c) {
+      deptHead.appendChild(cell("th", c[1], c[0]));
+    });
+    deptTable.appendChild(el("thead")).appendChild(deptHead);
+    var deptBody = el("tbody");
+    var maxDept = Math.max.apply(null, D.departments.map(function (d) { return d.total_cost_usd; }));
+    D.departments.forEach(function (d) {
+      var tr = el("tr");
+      tr.appendChild(cell("td", null, d.department));
+      tr.appendChild(cell("td", "r", int.format(d.queries)));
+      var cost = cell("td", "r");
+      cost.appendChild(el("div", null, money.format(d.total_cost_usd)));
+      var bar = el("div", "bar");
+      var fill = el("div", "bar__fill");
+      fill.style.width = (d.total_cost_usd / maxDept * 100).toFixed(1) + "%";
+      bar.appendChild(fill);
+      cost.appendChild(bar);
+      tr.appendChild(cost);
+      tr.appendChild(cell("td", "r", money.format(d.estimated_saving_usd)));
+      tr.appendChild(cell("td", "r", pct(d.saving_share)));
+      deptBody.appendChild(tr);
+    });
+    deptTable.appendChild(deptBody);
+
+    /* users */
+    var userTable = document.getElementById("users");
+    var userHead = el("tr");
+    [["User"], ["Dept"], ["Cost", "r"], ["Recoverable", "r"]].forEach(function (c) {
+      userHead.appendChild(cell("th", c[1], c[0]));
+    });
+    userTable.appendChild(el("thead")).appendChild(userHead);
+    var userBody = el("tbody");
+    D.users.forEach(function (u) {
+      var tr = el("tr");
+      tr.appendChild(cell("td", "mono", u.user));
+      tr.appendChild(cell("td", null, u.department));
+      tr.appendChild(cell("td", "r", money.format(u.total_cost_usd)));
+      tr.appendChild(cell("td", "r", money.format(u.estimated_saving_usd)));
+      userBody.appendChild(tr);
+    });
+    userTable.appendChild(userBody);
+
+    /* recommendations */
+    var recTable = document.getElementById("recommendations");
+    var recHead = el("tr");
+    [["Pattern"], ["Table"], ["Runs", "r"], ["Cost", "r"], ["Recoverable", "r"], ["Fix"]].forEach(function (c) {
+      recHead.appendChild(cell("th", c[1], c[0]));
+    });
+    recTable.appendChild(el("thead")).appendChild(recHead);
+    var recBody = el("tbody");
+    D.recommendations.forEach(function (r) {
+      var tr = el("tr");
+      tr.appendChild(cell("td", "mono", r.pattern));
+      tr.appendChild(cell("td", "mono", r.table));
+      tr.appendChild(cell("td", "r", int.format(r.occurrences)));
+      tr.appendChild(cell("td", "r", money.format(r.total_cost_usd)));
+      tr.appendChild(cell("td", "r", money.format(r.estimated_saving_usd)));
+      tr.appendChild(cell("td", "rec", r.recommendation));
+      recBody.appendChild(tr);
+    });
+    recTable.appendChild(recBody);
+
+    /* top offenders */
+    var offTable = document.getElementById("top-offenders");
+    var offHead = el("tr");
+    [["Query"], ["User"], ["Table"], ["Statement"], ["Scanned", "r"], ["Seconds", "r"], ["Cost", "r"], ["Fix"]].forEach(function (c) {
+      offHead.appendChild(cell("th", c[1], c[0]));
+    });
+    offTable.appendChild(el("thead")).appendChild(offHead);
+    var offBody = el("tbody");
+    D.top_offenders.forEach(function (q) {
+      var tr = el("tr");
+      tr.appendChild(cell("td", "mono", q.query_id));
+      tr.appendChild(cell("td", null, q.user));
+      tr.appendChild(cell("td", "mono", q.table));
+      tr.appendChild(cell("td", null, q.statement_type));
+      tr.appendChild(cell("td", "r", gb(q.bytes_scanned)));
+      tr.appendChild(cell("td", "r", Number(q.duration_seconds).toFixed(1)));
+      tr.appendChild(cell("td", "r", money.format(q.cost_usd)));
+      tr.appendChild(cell("td", "rec", q.recommendation || "—"));
+      offBody.appendChild(tr);
+    });
+    offTable.appendChild(offBody);
+
+    /* assumptions */
+    var a = D.assumptions;
+    var list = document.getElementById("assumptions");
+    [
+      ["price_per_tb_usd", money.format(a.price_per_tb_usd) + " per TB scanned (on-demand list price)"],
+      ["filter_selectivity", "a partition filter reads " + pct(a.filter_selectivity) + " of the table"],
+      ["materialization_reduction", "a materialised dashboard stops " + pct(a.materialization_reduction) + " of its rescans"],
+      ["incremental_reduction", "an incremental load removes " + pct(a.incremental_reduction) + " of a full rebuild's scan"],
+      ["single_query_alert_usd", "one query above " + money0.format(a.single_query_alert_usd) + " is treated as an incident"]
+    ].forEach(function (pair) {
+      list.appendChild(el("dt", null, pair[0]));
+      list.appendChild(el("dd", null, pair[1]));
+    });
+    document.getElementById("models-run").textContent = "Models: " + D.models_run.join(", ");
+
+    /* charts */
+    function fallback() {
+      Array.prototype.forEach.call(document.querySelectorAll(".chart-box"), function (box) {
+        box.innerHTML = "";
+        box.appendChild(el("div", "empty", "The chart loads Chart.js from a CDN, so it needs an internet connection the first time this page is opened."));
+      });
+    }
+    function drawChart() {
+      if (!window.Chart) { fallback(); return; }
+      Chart.defaults.font.family = '"IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+      Chart.defaults.color = MUTED;
+      Chart.defaults.borderColor = GRID;
+
+      new Chart(document.getElementById("trend-chart"), {
+        type: "line",
+        data: {
+          labels: D.daily.map(function (row) { return String(row.query_date); }),
+          datasets: [
+            {
+              label: "Total",
+              data: D.daily.map(function (row) { return row.cost_usd; }),
+              borderColor: INK, backgroundColor: "rgba(20,24,33,0.06)",
+              fill: true, borderWidth: 1.8, pointRadius: 0, tension: 0.15
+            },
+            {
+              label: "Avoidable",
+              data: D.daily.map(function (row) { return row.flagged_cost_usd; }),
+              borderColor: AMBER, backgroundColor: "rgba(163,96,10,0.16)",
+              fill: true, borderWidth: 1.6, pointRadius: 0, tension: 0.15
+            }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { display: true, labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true } },
+            tooltip: { callbacks: { label: function (context) { return context.dataset.label + ": " + money.format(context.parsed.y); } } }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 8, maxRotation: 0 } },
+            y: { ticks: { callback: function (value) { return moneyShort.format(value); } } }
+          }
+        }
+      });
+    }
+    window.addEventListener("load", drawChart);
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "default": 8000,
+  "Marketing": 12000,
+  "Finance": 6000,
+  "Product": 12000,
+  "Data Platform": 7000,
+  "Executive": 3000,
+  "Support": 6000
+}
