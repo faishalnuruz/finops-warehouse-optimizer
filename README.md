@@ -1,4 +1,5 @@
 # FinOps Warehouse Cost Optimizer
+[![CI](https://github.com/faishalnuruz/finops-warehouse-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/faishalnuruz/finops-warehouse-optimizer/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Attribute every dollar of warehouse spend to the query, the person, and the team that caused it —
 then rank what a filter, a cache, or an incremental load would recover.
